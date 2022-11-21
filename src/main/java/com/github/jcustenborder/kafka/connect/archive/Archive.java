@@ -23,6 +23,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.transforms.Transformation;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,30 +43,33 @@ public class Archive<R extends ConnectRecord<R>> implements Transformation<R> {
   }
 
   private R applyWithSchema(R r) {
+    long offset = ((SinkRecord) r).kafkaOffset();
     final Schema schema = SchemaBuilder.struct()
         .name("com.github.jcustenborder.kafka.connect.archive.Storage")
         .field("key", r.keySchema())
         .field("value", r.valueSchema())
         .field("topic", Schema.STRING_SCHEMA)
+        .field("offset", Schema.INT64_SCHEMA)
         .field("timestamp", Schema.INT64_SCHEMA);
     Struct value = new Struct(schema)
         .put("key", r.key())
         .put("value", r.value())
         .put("topic", r.topic())
+        .put("offset", offset)
         .put("timestamp", r.timestamp());
     return r.newRecord(r.topic(), r.kafkaPartition(), null, null, schema, value, r.timestamp());
   }
 
   @SuppressWarnings("unchecked")
   private R applySchemaless(R r) {
-
+    long offset = ((SinkRecord) r).kafkaOffset();
     final Map<String, Object> archiveValue = new HashMap<>();
-
     final Map<String, Object> value = (Map<String, Object>) r.value();
 
     archiveValue.put("key", r.key());
     archiveValue.put("value", value);
     archiveValue.put("topic", r.topic());
+    archiveValue.put("offset", offset);
     archiveValue.put("timestamp", r.timestamp());
 
     return r.newRecord(r.topic(), r.kafkaPartition(), null, null, null, archiveValue, r.timestamp());
